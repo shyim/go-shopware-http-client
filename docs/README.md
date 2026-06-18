@@ -1,0 +1,13 @@
+# shopware — documentation
+
+[← Package README](../README.md)
+
+- [Authentication](./authentication.md) — integration, admin user, custom grants.
+- [Raw requests](./raw-requests.md) — the HTTP verbs and `Response`.
+- [Entities & repositories](./entities.md) — typed search, ids, sync, DAL context.
+- [Criteria builder](./criteria.md) — filters, sorting, associations, includes.
+- [Aggregations](./aggregations.md) — typed aggregation results.
+- [Token storage](./token-storage.md) — caching, distributed backends, keys.
+- [Custom HTTP client & headers](./http-client.md) — transports, global headers.
+- [Error handling](./error-handling.md) — `APIError`, the 401 retry.
+- [Concurrency](./concurrency.md) — safe concurrent use, token-fetch collapsing.
