@@ -25,9 +25,9 @@ mgr := extension.NewManager(client)
 ## Listing
 
 ```go
-list, err := mgr.ListAvailable(ctx) // extension.ExtensionList
+list, err := mgr.ListAvailable(ctx) // extension.List
 
-foo := list.GetByName("SwagPayPal") // *ExtensionDetail or nil
+foo := list.GetByName("SwagPayPal") // *extension.Detail or nil
 for _, e := range list.FilterByUpdatable() {
 	fmt.Println(e.Name, e.Version, "->", e.LatestVersion, e.Status())
 }

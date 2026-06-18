@@ -5,11 +5,11 @@ import (
 	"fmt"
 )
 
-// ExtensionList is the response of ListAvailable.
-type ExtensionList []*ExtensionDetail
+// List is the response of ListAvailable.
+type List []*Detail
 
 // GetByName returns the extension with the given technical name, or nil.
-func (l ExtensionList) GetByName(name string) *ExtensionDetail {
+func (l List) GetByName(name string) *Detail {
 	for _, detail := range l {
 		if detail.Name == name {
 			return detail
@@ -20,8 +20,8 @@ func (l ExtensionList) GetByName(name string) *ExtensionDetail {
 
 // FilterByUpdatable returns only the extensions that have a newer version
 // available.
-func (l ExtensionList) FilterByUpdatable() ExtensionList {
-	out := make(ExtensionList, 0)
+func (l List) FilterByUpdatable() List {
+	out := make(List, 0)
 	for _, detail := range l {
 		if detail.IsUpdatable() {
 			out = append(out, detail)
@@ -30,29 +30,29 @@ func (l ExtensionList) FilterByUpdatable() ExtensionList {
 	return out
 }
 
-// ExtensionDetail describes a single extension. Fields whose shape is not
+// Detail describes a single extension. Fields whose shape is not
 // stable across Shopware versions are kept as json.RawMessage; decode them
 // yourself when needed.
-type ExtensionDetail struct {
-	Name             string `json:"name"`
-	Label            string `json:"label"`
-	Description      string `json:"description"`
-	ProducerName     string `json:"producerName"`
-	License          string `json:"license"`
-	Version          string `json:"version"`
-	LatestVersion    string `json:"latestVersion"`
-	NumberOfRatings  int    `json:"numberOfRatings"`
-	LocalID          string `json:"localId"`
-	Active           bool   `json:"active"`
-	Type             string `json:"type"`
-	IsTheme          bool   `json:"isTheme"`
-	Configurable     bool   `json:"configurable"`
-	Source           string `json:"source"`
-	UpdateSource     string `json:"updateSource"`
-	IconRaw          *string `json:"iconRaw"`
+type Detail struct {
+	Name            string  `json:"name"`
+	Label           string  `json:"label"`
+	Description     string  `json:"description"`
+	ProducerName    string  `json:"producerName"`
+	License         string  `json:"license"`
+	Version         string  `json:"version"`
+	LatestVersion   string  `json:"latestVersion"`
+	NumberOfRatings int     `json:"numberOfRatings"`
+	LocalID         string  `json:"localId"`
+	Active          bool    `json:"active"`
+	Type            string  `json:"type"`
+	IsTheme         bool    `json:"isTheme"`
+	Configurable    bool    `json:"configurable"`
+	Source          string  `json:"source"`
+	UpdateSource    string  `json:"updateSource"`
+	IconRaw         *string `json:"iconRaw"`
 
-	InstalledAt *ExtensionDate `json:"installedAt"`
-	UpdatedAt   *ExtensionDate `json:"updatedAt"`
+	InstalledAt *Date `json:"installedAt"`
+	UpdatedAt   *Date `json:"updatedAt"`
 
 	// Permissions, Images, Categories, etc. vary by version/source.
 	Permissions json.RawMessage `json:"permissions,omitempty"`
@@ -60,25 +60,25 @@ type ExtensionDetail struct {
 	Categories  json.RawMessage `json:"categories,omitempty"`
 }
 
-// ExtensionDate is the PHP DateTime envelope Shopware serializes timestamps as.
-type ExtensionDate struct {
+// Date is the PHP DateTime envelope Shopware serializes timestamps as.
+type Date struct {
 	Date         string `json:"date"`
 	TimezoneType int    `json:"timezone_type"`
 	Timezone     string `json:"timezone"`
 }
 
 // IsPlugin reports whether the extension is a plugin (vs an app).
-func (e ExtensionDetail) IsPlugin() bool {
+func (e Detail) IsPlugin() bool {
 	return e.Type == "plugin"
 }
 
 // IsUpdatable reports whether a newer version than the installed one exists.
-func (e ExtensionDetail) IsUpdatable() bool {
+func (e Detail) IsUpdatable() bool {
 	return e.LatestVersion != "" && e.LatestVersion != e.Version
 }
 
 // Status returns a human-readable status line for the extension.
-func (e ExtensionDetail) Status() string {
+func (e Detail) Status() string {
 	var text string
 	switch {
 	case e.Source == "store":

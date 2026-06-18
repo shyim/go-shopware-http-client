@@ -145,8 +145,8 @@ func (c *Criteria) SetTitle(title string) *Criteria {
 	return c
 }
 
-// SetIds replaces the id filter.
-func (c *Criteria) SetIds(ids []string) *Criteria {
+// SetIDs replaces the id filter.
+func (c *Criteria) SetIDs(ids []string) *Criteria {
 	c.ids = ids
 	return c
 }

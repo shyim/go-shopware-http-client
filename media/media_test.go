@@ -141,7 +141,7 @@ func TestUploadByURL(t *testing.T) {
 
 func TestInvalidFileNameDoesNotCreateMedia(t *testing.T) {
 	called := false
-	srv := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+	srv := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		_, _ = w.Write([]byte(`{}`))
 	})

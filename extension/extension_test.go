@@ -160,10 +160,10 @@ func TestUploadUpdateToCloudIncludesMediaField(t *testing.T) {
 	assert.Equal(t, "ZIP", file)
 }
 
-func TestExtensionDetailStatusAndDate(t *testing.T) {
+func TestDetailStatusAndDate(t *testing.T) {
 	raw := `{"name":"X","version":"1.0.0","latestVersion":"1.2.0","active":true,
 		"installedAt":{"date":"2026-01-01 00:00:00.000000","timezone_type":3,"timezone":"UTC"}}`
-	var d ExtensionDetail
+	var d Detail
 	require.NoError(t, json.Unmarshal([]byte(raw), &d))
 
 	require.NotNil(t, d.InstalledAt)

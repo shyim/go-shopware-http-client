@@ -1,5 +1,8 @@
 # go-shopware-http-client
 
+[![CI](https://github.com/shyim/go-shopware-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/shyim/go-shopware-http-client/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/shyim/go-shopware-http-client.svg)](https://pkg.go.dev/github.com/shyim/go-shopware-http-client)
+
 A standalone Go client for the [Shopware](https://www.shopware.com/) Admin API,
 with a typed Data Abstraction Layer (DAL) on top.
 

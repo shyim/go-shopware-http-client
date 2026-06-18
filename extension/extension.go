@@ -41,12 +41,12 @@ func (m *Manager) Refresh(ctx context.Context) error {
 }
 
 // ListAvailable returns all installed/available extensions.
-func (m *Manager) ListAvailable(ctx context.Context) (ExtensionList, error) {
+func (m *Manager) ListAvailable(ctx context.Context) (List, error) {
 	resp, err := m.client.Get(ctx, "/_action/extension/installed")
 	if err != nil {
 		return nil, err
 	}
-	var list ExtensionList
+	var list List
 	if err := resp.JSON(&list); err != nil {
 		return nil, err
 	}

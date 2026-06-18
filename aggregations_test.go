@@ -43,17 +43,17 @@ func TestAggregationMetricResults(t *testing.T) {
 	assert.Equal(t, 1565, count.Count)
 
 	// min came back as a decimal string -> Numeric handles both forms.
-	min, err := a.GetMin("mn")
+	minResult, err := a.GetMin("mn")
 	require.NoError(t, err)
-	assert.Equal(t, "1.5400", min.Min.String())
-	f, err := min.Min.Float()
+	assert.Equal(t, "1.5400", minResult.Min.String())
+	f, err := minResult.Min.Float()
 	require.NoError(t, err)
 	assert.InDelta(t, 1.54, f, 1e-6)
 
 	// max came back as a bare number here.
-	max, err := a.GetMax("mx")
+	maxResult, err := a.GetMax("mx")
 	require.NoError(t, err)
-	mf, err := max.Max.Float()
+	mf, err := maxResult.Max.Float()
 	require.NoError(t, err)
 	assert.InDelta(t, 88888, mf, 1e-6)
 
