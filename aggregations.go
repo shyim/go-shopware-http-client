@@ -189,13 +189,8 @@ func (b *Bucket) UnmarshalJSON(data []byte) error {
 	}
 
 	if v, ok := raw["key"]; ok {
-		// key may be a string or, defensively, a number — decode loosely.
 		if err := json.Unmarshal(v, &b.Key); err != nil {
-			var n Numeric
-			if err := json.Unmarshal(v, &n); err != nil {
-				return err
-			}
-			b.Key = n.String()
+			return err
 		}
 	}
 	if v, ok := raw["count"]; ok {

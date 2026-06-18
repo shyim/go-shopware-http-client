@@ -53,8 +53,7 @@ type Config struct {
 	// NewIntegrationCredentials (client_credentials) or NewPasswordCredentials
 	// (admin user login), or supply a custom Credentials implementation.
 	//
-	// If nil, ClientID/ClientSecret are used as IntegrationCredentials for
-	// backward compatibility.
+	// If nil, ClientID/ClientSecret are used as IntegrationCredentials.
 	Credentials Credentials
 
 	// ClientID and ClientSecret are a shorthand for integration credentials and
@@ -72,10 +71,9 @@ type Config struct {
 	Headers map[string]string
 
 	// TokenStorage caches OAuth tokens. If nil, a process-local
-	// InMemoryTokenStorage is used, matching the previous default of caching
-	// the token for the lifetime of the Client. Provide a distributed store
-	// (Redis, ...) to share tokens across instances, or NewNoOpTokenStorage()
-	// to disable caching.
+	// InMemoryTokenStorage is used, caching the token for the lifetime of the
+	// Client. Provide a distributed store (Redis, ...) to share tokens across
+	// instances, or NewNoOpTokenStorage() to disable caching.
 	TokenStorage TokenStorage
 
 	// TokenStorageKey is the key under which this Client's token is stored. If
