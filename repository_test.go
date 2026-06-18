@@ -30,7 +30,7 @@ func TestRepositorySearch(t *testing.T) {
 	repo := NewRepository[product](newClient(srv.URL), "product")
 	res, err := repo.Search(context.Background(),
 		NewCriteria().SetLimit(1).AddFilter(Equals("active", true)),
-		ApiContext{LanguageID: "en-id"})
+		WithLanguage("en-id"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "/api/search/product", path)
@@ -49,7 +49,7 @@ func TestRepositorySearchRouteDashCases(t *testing.T) {
 	defer srv.Close()
 
 	repo := NewRepository[product](newClient(srv.URL), "sales_channel")
-	_, err := repo.Search(context.Background(), NewCriteria(), ApiContext{})
+	_, err := repo.Search(context.Background(), NewCriteria())
 	require.NoError(t, err)
 	assert.Equal(t, "/api/search/sales-channel", path)
 }
@@ -62,7 +62,7 @@ func TestRepositorySearchIDs(t *testing.T) {
 	defer srv.Close()
 
 	repo := NewRepository[product](newClient(srv.URL), "product")
-	ids, err := repo.SearchIDs(context.Background(), NewCriteria(), ApiContext{})
+	ids, err := repo.SearchIDs(context.Background(), NewCriteria())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"p1", "p2"}, ids)
 }
@@ -83,7 +83,7 @@ func TestSearchIDsAsMappingEntity(t *testing.T) {
 	}
 
 	repo := NewRepository[productCategory](newClient(srv.URL), "product_category")
-	pairs, err := SearchIDsAs[productCategory](context.Background(), repo, NewCriteria(), ApiContext{})
+	pairs, err := SearchIDsAs[productCategory](context.Background(), repo, NewCriteria())
 	require.NoError(t, err)
 
 	require.Len(t, pairs, 2)
@@ -111,8 +111,7 @@ func TestAggregateAsDecodesTyped(t *testing.T) {
 
 	repo := NewRepository[product](newClient(srv.URL), "product")
 	got, err := AggregateAs[aggs](context.Background(), repo,
-		NewCriteria().AddAggregation(TermsAggregation("by_active", "active", nil, nil, nil)),
-		ApiContext{})
+		NewCriteria().AddAggregation(TermsAggregation("by_active", "active", nil, nil, nil)))
 	require.NoError(t, err)
 
 	require.Len(t, got.ByActive.Buckets, 1)
@@ -130,7 +129,7 @@ func TestRepositoryUpsertSendsSyncOperation(t *testing.T) {
 	defer srv.Close()
 
 	repo := NewRepository[product](newClient(srv.URL), "product")
-	err := repo.Upsert(context.Background(), []product{{ID: "p1", Name: "Shirt"}}, ApiContext{})
+	err := repo.Upsert(context.Background(), []product{{ID: "p1", Name: "Shirt"}})
 	require.NoError(t, err)
 
 	require.Len(t, captured, 1)
@@ -148,7 +147,7 @@ func TestRepositoryDeleteByFilters(t *testing.T) {
 	defer srv.Close()
 
 	repo := NewRepository[product](newClient(srv.URL), "product")
-	err := repo.DeleteByFilters(context.Background(), []Filter{Equals("active", false)}, ApiContext{})
+	err := repo.DeleteByFilters(context.Background(), []Filter{Equals("active", false)})
 	require.NoError(t, err)
 
 	require.Len(t, captured, 1)
@@ -157,22 +156,21 @@ func TestRepositoryDeleteByFilters(t *testing.T) {
 	require.Len(t, captured[0].Criteria, 1)
 }
 
-func TestApiContextHeaders(t *testing.T) {
-	inheritance := true
-	skip := false
-	ctx := ApiContext{
-		LanguageID:       "lang",
-		VersionID:        "ver",
-		Inheritance:      &inheritance,
-		SkipTriggerFlows: &skip,
-	}
-	headers := ctx.Headers()
+func TestRequestOptionsResolveHeaders(t *testing.T) {
+	headers := resolveHeaders([]RequestOption{
+		WithLanguage("lang"),
+		WithVersion("ver"),
+		WithInheritance(true),
+		WithSkipTriggerFlows(false),
+		WithHeader("x-custom", "1"),
+	})
 	assert.Equal(t, "lang", headers["sw-language-id"])
 	assert.Equal(t, "ver", headers["sw-version-id"])
 	assert.Equal(t, "1", headers["sw-inheritance"])
 	assert.Equal(t, "0", headers["sw-skip-trigger-flow"])
+	assert.Equal(t, "1", headers["x-custom"])
 
-	assert.Empty(t, ApiContext{}.Headers(), "zero context sends no headers")
+	assert.Empty(t, resolveHeaders(nil), "no options send no headers")
 }
 
 func TestUUIDIsStripped(t *testing.T) {

@@ -38,7 +38,6 @@ result, err := products.Search(ctx,
 	shopware.NewCriteria().
 		SetLimit(10).
 		AddFilter(shopware.Equals("active", true)),
-	shopware.ApiContext{},
 )
 if err != nil {
 	panic(err)

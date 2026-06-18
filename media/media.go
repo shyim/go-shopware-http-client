@@ -133,7 +133,7 @@ func (m *Manager) createMedia(ctx context.Context, private bool, folderID string
 		"mediaFolderId": nullable(folderID),
 	}
 	repo := shopware.NewRepository[map[string]any](m.client, "media")
-	if err := repo.Upsert(ctx, []map[string]any{entity}, shopware.ApiContext{}); err != nil {
+	if err := repo.Upsert(ctx, []map[string]any{entity}); err != nil {
 		return "", err
 	}
 	return mediaID, nil
@@ -141,7 +141,7 @@ func (m *Manager) createMedia(ctx context.Context, private bool, folderID string
 
 func (m *Manager) rollback(ctx context.Context, mediaID string) {
 	repo := shopware.NewRepository[map[string]any](m.client, "media")
-	_ = repo.Delete(ctx, []map[string]any{{"id": mediaID}}, shopware.ApiContext{})
+	_ = repo.Delete(ctx, []map[string]any{{"id": mediaID}})
 }
 
 // DefaultFolderByEntity returns the default media folder ID configured for the
@@ -159,7 +159,7 @@ func (m *Manager) DefaultFolderByEntity(ctx context.Context, entity string) (str
 		AddFilter(shopware.Equals("entity", entity)).
 		SetLimit(1)
 
-	result, err := repo.Search(ctx, criteria, shopware.ApiContext{})
+	result, err := repo.Search(ctx, criteria)
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +181,7 @@ func (m *Manager) FolderByName(ctx context.Context, name string) (string, error)
 		AddFilter(shopware.Equals("name", name)).
 		SetLimit(1)
 
-	result, err := repo.Search(ctx, criteria, shopware.ApiContext{})
+	result, err := repo.Search(ctx, criteria)
 	if err != nil {
 		return "", err
 	}
@@ -207,7 +207,7 @@ func (m *Manager) CreateFolder(ctx context.Context, name string, opts CreateFold
 		"configuration": map[string]any{},
 	}
 	repo := shopware.NewRepository[map[string]any](m.client, "media_folder")
-	if err := repo.Upsert(ctx, []map[string]any{entity}, shopware.ApiContext{}); err != nil {
+	if err := repo.Upsert(ctx, []map[string]any{entity}); err != nil {
 		return "", err
 	}
 	return folderID, nil

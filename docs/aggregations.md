@@ -12,7 +12,7 @@ c := shopware.NewCriteria().
 	AddAggregation(shopware.TermsAggregation("per_manufacturer", "manufacturerId", &limit, nil, nil)).
 	AddAggregation(shopware.StatsAggregation("price_stats", "price"))
 
-aggs, err := products.Aggregate(ctx, c, shopware.ApiContext{})
+aggs, err := products.Aggregate(ctx, c)
 
 stats, _ := aggs.GetStats("price_stats")
 // stats.Avg, stats.Sum  -> *float64
@@ -65,7 +65,7 @@ the criteria, not the entity):
 type Aggs struct {
 	PerManufacturer shopware.TermsResult `json:"per_manufacturer"`
 }
-typed, err := shopware.AggregateAs[Aggs](ctx, products, c, shopware.ApiContext{})
+typed, err := shopware.AggregateAs[Aggs](ctx, products, c)
 ```
 
 ## See also

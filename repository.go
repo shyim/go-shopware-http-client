@@ -23,40 +23,63 @@ func UUID() string {
 	return strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
-// ApiContext carries the DAL context headers (language, version, inheritance,
-// indexing behaviour) sent with a request. The zero value sends no context
-// headers.
-type ApiContext struct {
-	LanguageID        string
-	VersionID         string
-	Inheritance       *bool
-	SkipTriggerFlows  *bool
-	IndexingSkip      string
-	IndexingBehaviour string
+// RequestOption configures the DAL context (language, version, inheritance,
+// indexing behaviour) for a single repository operation. Pass any number to the
+// repository methods; with none, no context headers are sent.
+//
+//	repo.Search(ctx, criteria)                       // no context
+//	repo.Search(ctx, criteria, WithLanguage(langID)) // with a language
+type RequestOption func(*requestOptions)
+
+type requestOptions struct {
+	headers map[string]string
 }
 
-// Headers renders the context into request headers, omitting unset fields.
-func (c ApiContext) Headers() map[string]string {
-	headers := map[string]string{}
-	if c.LanguageID != "" {
-		headers["sw-language-id"] = c.LanguageID
+func resolveHeaders(opts []RequestOption) map[string]string {
+	o := requestOptions{headers: map[string]string{}}
+	for _, opt := range opts {
+		opt(&o)
 	}
-	if c.VersionID != "" {
-		headers["sw-version-id"] = c.VersionID
+	return o.headers
+}
+
+// WithLanguage sets the sw-language-id header.
+func WithLanguage(languageID string) RequestOption {
+	return WithHeader("sw-language-id", languageID)
+}
+
+// WithVersion sets the sw-version-id header.
+func WithVersion(versionID string) RequestOption {
+	return WithHeader("sw-version-id", versionID)
+}
+
+// WithInheritance toggles the sw-inheritance header.
+func WithInheritance(inherit bool) RequestOption {
+	return WithHeader("sw-inheritance", boolHeader(inherit))
+}
+
+// WithSkipTriggerFlows toggles the sw-skip-trigger-flow header.
+func WithSkipTriggerFlows(skip bool) RequestOption {
+	return WithHeader("sw-skip-trigger-flow", boolHeader(skip))
+}
+
+// WithIndexingSkip sets the indexing-skip header (a comma-separated list of
+// indexers to skip).
+func WithIndexingSkip(value string) RequestOption {
+	return WithHeader("indexing-skip", value)
+}
+
+// WithIndexingBehaviour sets the indexing-behavior header.
+func WithIndexingBehaviour(value string) RequestOption {
+	return WithHeader("indexing-behavior", value)
+}
+
+// WithHeader sets an arbitrary request header, an escape hatch for headers not
+// covered by a dedicated option.
+func WithHeader(key, value string) RequestOption {
+	return func(o *requestOptions) {
+		o.headers[key] = value
 	}
-	if c.Inheritance != nil {
-		headers["sw-inheritance"] = boolHeader(*c.Inheritance)
-	}
-	if c.SkipTriggerFlows != nil {
-		headers["sw-skip-trigger-flow"] = boolHeader(*c.SkipTriggerFlows)
-	}
-	if c.IndexingSkip != "" {
-		headers["indexing-skip"] = c.IndexingSkip
-	}
-	if c.IndexingBehaviour != "" {
-		headers["indexing-behavior"] = c.IndexingBehaviour
-	}
-	return headers
 }
 
 func boolHeader(v bool) string {
@@ -86,7 +109,7 @@ func (r *SearchResult[T]) First() *T {
 // Create one with NewRepository:
 //
 //	products := NewRepository[Product](client, "product")
-//	res, err := products.Search(ctx, NewCriteria().SetLimit(10), ApiContext{})
+//	res, err := products.Search(ctx, NewCriteria().SetLimit(10))
 type EntityRepository[T any] struct {
 	client     *Client
 	entityName string
@@ -105,8 +128,8 @@ func (r *EntityRepository[T]) route() string {
 }
 
 // Search executes the criteria and returns the matching entities.
-func (r *EntityRepository[T]) Search(ctx context.Context, criteria *Criteria, apiCtx ApiContext) (*SearchResult[T], error) {
-	resp, err := r.client.Request(ctx, "POST", "/search/"+r.route(), criteria.ToPayload(), apiCtx.Headers())
+func (r *EntityRepository[T]) Search(ctx context.Context, criteria *Criteria, opts ...RequestOption) (*SearchResult[T], error) {
+	resp, err := r.client.Request(ctx, "POST", "/search/"+r.route(), criteria.ToPayload(), resolveHeaders(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +148,8 @@ func (r *EntityRepository[T]) Search(ctx context.Context, criteria *Criteria, ap
 // mapping entities (m:n join tables such as product_category), whose primary
 // key is composite, /search-ids returns objects instead — use the generic
 // SearchIDsAs to decode those into a struct.
-func (r *EntityRepository[T]) SearchIDs(ctx context.Context, criteria *Criteria, apiCtx ApiContext) ([]string, error) {
-	return SearchIDsAs[string](ctx, r, criteria, apiCtx)
+func (r *EntityRepository[T]) SearchIDs(ctx context.Context, criteria *Criteria, opts ...RequestOption) ([]string, error) {
+	return SearchIDsAs[string](ctx, r, criteria, opts...)
 }
 
 // SearchIDsAs executes the criteria and returns the matching primary keys
@@ -137,12 +160,12 @@ func (r *EntityRepository[T]) SearchIDs(ctx context.Context, criteria *Criteria,
 //		ProductID  string `json:"productId"`
 //		CategoryID string `json:"categoryId"`
 //	}
-//	pairs, err := SearchIDsAs[ProductCategory](ctx, repo, criteria, apiCtx)
+//	pairs, err := SearchIDsAs[ProductCategory](ctx, repo, criteria)
 //
 // For single-column keys, ID is string and the repository method SearchIDs is
 // the shorter spelling.
-func SearchIDsAs[ID any, T any](ctx context.Context, repo *EntityRepository[T], criteria *Criteria, apiCtx ApiContext) ([]ID, error) {
-	resp, err := repo.client.Request(ctx, "POST", "/search-ids/"+repo.route(), criteria.ToPayload(), apiCtx.Headers())
+func SearchIDsAs[ID any, T any](ctx context.Context, repo *EntityRepository[T], criteria *Criteria, opts ...RequestOption) ([]ID, error) {
+	resp, err := repo.client.Request(ctx, "POST", "/search-ids/"+repo.route(), criteria.ToPayload(), resolveHeaders(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -161,9 +184,9 @@ func SearchIDsAs[ID any, T any](ctx context.Context, repo *EntityRepository[T], 
 // map; decode a named entry with its Get* helpers (GetTerms, GetStats, ...).
 //
 // For a fully custom result shape, use the generic AggregateAs instead.
-func (r *EntityRepository[T]) Aggregate(ctx context.Context, criteria *Criteria, apiCtx ApiContext) (AggregationResults, error) {
+func (r *EntityRepository[T]) Aggregate(ctx context.Context, criteria *Criteria, opts ...RequestOption) (AggregationResults, error) {
 	criteria.SetLimit(1)
-	resp, err := r.client.Request(ctx, "POST", "/search/"+r.route(), criteria.ToPayload(), apiCtx.Headers())
+	resp, err := r.client.Request(ctx, "POST", "/search/"+r.route(), criteria.ToPayload(), resolveHeaders(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +213,10 @@ func (r *EntityRepository[T]) Aggregate(ctx context.Context, criteria *Criteria,
 //			} `json:"buckets"`
 //		} `json:"by_active"`
 //	}
-//	aggs, err := AggregateAs[Aggs](ctx, repo, criteria, apiCtx)
-func AggregateAs[A any, T any](ctx context.Context, repo *EntityRepository[T], criteria *Criteria, apiCtx ApiContext) (*A, error) {
+//	aggs, err := AggregateAs[Aggs](ctx, repo, criteria)
+func AggregateAs[A any, T any](ctx context.Context, repo *EntityRepository[T], criteria *Criteria, opts ...RequestOption) (*A, error) {
 	criteria.SetLimit(1)
-	resp, err := repo.client.Request(ctx, "POST", "/search/"+repo.route(), criteria.ToPayload(), apiCtx.Headers())
+	resp, err := repo.client.Request(ctx, "POST", "/search/"+repo.route(), criteria.ToPayload(), resolveHeaders(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -208,25 +231,25 @@ func AggregateAs[A any, T any](ctx context.Context, repo *EntityRepository[T], c
 }
 
 // Upsert creates or updates the given entities in a single sync operation.
-func (r *EntityRepository[T]) Upsert(ctx context.Context, payload []T, apiCtx ApiContext) error {
+func (r *EntityRepository[T]) Upsert(ctx context.Context, payload []T, opts ...RequestOption) error {
 	return NewSyncService(r.client).Sync(ctx, []SyncOperation{
 		NewSyncOperation("upsert", r.entityName, "upsert", toAnySlice(payload), nil),
-	}, apiCtx)
+	}, opts...)
 }
 
 // Delete removes the given entities. Each element typically carries at least an
 // "id" field.
-func (r *EntityRepository[T]) Delete(ctx context.Context, payload []map[string]any, apiCtx ApiContext) error {
+func (r *EntityRepository[T]) Delete(ctx context.Context, payload []map[string]any, opts ...RequestOption) error {
 	return NewSyncService(r.client).Sync(ctx, []SyncOperation{
 		NewSyncOperation("delete", r.entityName, "delete", toAnySlice(payload), nil),
-	}, apiCtx)
+	}, opts...)
 }
 
 // DeleteByFilters removes all entities matching the given filters.
-func (r *EntityRepository[T]) DeleteByFilters(ctx context.Context, filters []Filter, apiCtx ApiContext) error {
+func (r *EntityRepository[T]) DeleteByFilters(ctx context.Context, filters []Filter, opts ...RequestOption) error {
 	return NewSyncService(r.client).Sync(ctx, []SyncOperation{
 		NewSyncOperation("delete", r.entityName, "delete", nil, filters),
-	}, apiCtx)
+	}, opts...)
 }
 
 func toAnySlice[T any](in []T) []any {
@@ -268,7 +291,7 @@ func NewSyncOperation(key, entity, action string, payload []any, criteria []Filt
 }
 
 // Sync sends the operations to the /_action/sync endpoint.
-func (s *SyncService) Sync(ctx context.Context, operations []SyncOperation, apiCtx ApiContext) error {
-	_, err := s.client.Request(ctx, "POST", "/_action/sync", operations, apiCtx.Headers())
+func (s *SyncService) Sync(ctx context.Context, operations []SyncOperation, opts ...RequestOption) error {
+	_, err := s.client.Request(ctx, "POST", "/_action/sync", operations, resolveHeaders(opts))
 	return err
 }

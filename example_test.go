@@ -59,7 +59,6 @@ func ExampleEntityRepository_Search() {
 			SetLimit(10).
 			AddFilter(shopware.Equals("active", true)).
 			AddSorting(shopware.Sort("createdAt", "DESC")),
-		shopware.ApiContext{},
 	)
 	if err != nil {
 		return
@@ -74,11 +73,11 @@ func ExampleEntityRepository_Upsert() {
 
 	_ = products.Upsert(ctx, []exampleProduct{
 		{ID: shopware.UUID(), Name: "New Product"},
-	}, shopware.ApiContext{})
+	})
 
 	_ = products.DeleteByFilters(ctx, []shopware.Filter{
 		shopware.Equals("active", false),
-	}, shopware.ApiContext{})
+	})
 }
 
 func ExampleSearchIDsAs() {
@@ -91,7 +90,7 @@ func ExampleSearchIDsAs() {
 	}
 	mapping := shopware.NewRepository[productCategory](client, "product_category")
 
-	pairs, err := shopware.SearchIDsAs[productCategory](ctx, mapping, shopware.NewCriteria(), shopware.ApiContext{})
+	pairs, err := shopware.SearchIDsAs[productCategory](ctx, mapping, shopware.NewCriteria())
 	if err != nil {
 		return
 	}
@@ -106,8 +105,7 @@ func ExampleEntityRepository_Aggregate() {
 	aggs, err := products.Aggregate(ctx,
 		shopware.NewCriteria().
 			AddAggregation(shopware.TermsAggregation("by_active", "active", nil, nil, nil)).
-			AddAggregation(shopware.StatsAggregation("price_stats", "price")),
-		shopware.ApiContext{})
+			AddAggregation(shopware.StatsAggregation("price_stats", "price")))
 	if err != nil {
 		return
 	}
@@ -131,8 +129,7 @@ func ExampleAggregateAs() {
 	}
 
 	got, err := shopware.AggregateAs[aggs](ctx, products,
-		shopware.NewCriteria().AddAggregation(shopware.TermsAggregation("by_active", "active", nil, nil, nil)),
-		shopware.ApiContext{})
+		shopware.NewCriteria().AddAggregation(shopware.TermsAggregation("by_active", "active", nil, nil, nil)))
 	if err != nil {
 		return
 	}

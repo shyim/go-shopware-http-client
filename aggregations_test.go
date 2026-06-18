@@ -125,8 +125,7 @@ func TestRepositoryAggregateReturnsTyped(t *testing.T) {
 
 	repo := NewRepository[product](newClient(srv.URL), "product")
 	aggs, err := repo.Aggregate(context.Background(),
-		NewCriteria().AddAggregation(TermsAggregation("by_active", "active", nil, nil, nil)),
-		ApiContext{})
+		NewCriteria().AddAggregation(TermsAggregation("by_active", "active", nil, nil, nil)))
 	require.NoError(t, err)
 
 	terms, err := aggs.GetTerms("by_active")
