@@ -62,6 +62,7 @@ Full guides live in [`docs/`](./docs/README.md):
 - [Entities & repositories](./docs/entities.md) — typed search, ids, mapping entities, sync, DAL context.
 - [Criteria builder](./docs/criteria.md) — filters, sorting, associations, includes.
 - [Aggregations](./docs/aggregations.md) — typed aggregation results.
+- [Extension manager](./docs/extensions.md) — `/_action/extension/*` helpers (sub-package).
 - [Token storage](./docs/token-storage.md) — caching, distributed backends, keys.
 - [Custom HTTP client & headers](./docs/http-client.md) — transports, global headers.
 - [Error handling](./docs/error-handling.md) — `APIError`, the 401 retry.

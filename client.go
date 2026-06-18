@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -101,6 +102,12 @@ type Client struct {
 	// tokenGroup collapses concurrent token fetches (cold cache or post-401
 	// re-auth) into a single in-flight request that all callers share.
 	tokenGroup singleflight.Group
+
+	// versionGroup collapses concurrent /_info/config fetches; version caches
+	// the resolved Shopware version string.
+	versionGroup singleflight.Group
+	versionMu    sync.Mutex
+	version      string
 }
 
 type tokenResponse struct {
@@ -173,6 +180,39 @@ func NewClient(config Config) *Client {
 func (c *Client) Authenticate(ctx context.Context) error {
 	_, err := c.getToken(ctx)
 	return err
+}
+
+// Version returns the shop's Shopware version (e.g. "6.7.0.0"), fetching it
+// from /api/_info/config once and caching the result. Concurrent callers share
+// a single fetch. Endpoint helpers use it to gate version-specific behavior.
+func (c *Client) Version(ctx context.Context) (string, error) {
+	c.versionMu.Lock()
+	cached := c.version
+	c.versionMu.Unlock()
+	if cached != "" {
+		return cached, nil
+	}
+
+	v, err, _ := c.versionGroup.Do("version", func() (any, error) {
+		resp, err := c.Get(ctx, "/_info/config")
+		if err != nil {
+			return "", err
+		}
+		var info struct {
+			Version string `json:"version"`
+		}
+		if err := resp.JSON(&info); err != nil {
+			return "", fmt.Errorf("decode _info/config: %w", err)
+		}
+		c.versionMu.Lock()
+		c.version = info.Version
+		c.versionMu.Unlock()
+		return info.Version, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
 }
 
 // cachedAccessToken returns a still-valid cached token, or "" if none. A token
@@ -294,25 +334,56 @@ func (c *Client) Delete(ctx context.Context, path string, body any) (*Response, 
 	return c.Request(ctx, http.MethodDelete, path, body, nil)
 }
 
-// Request makes an authenticated request to /api+path. extraHeaders are merged
-// on top of the per-request defaults (e.g. DAL context headers).
+// Request makes an authenticated request to /api+path with a JSON body.
+// extraHeaders are merged on top of the per-request defaults (e.g. DAL context
+// headers).
 func (c *Client) Request(ctx context.Context, method, path string, body any, extraHeaders map[string]string) (*Response, error) {
-	return c.doRequest(ctx, method, path, body, extraHeaders, true)
+	bodyFactory := func() (io.Reader, error) {
+		if body == nil {
+			return nil, nil
+		}
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("marshal body: %w", err)
+		}
+		return bytes.NewReader(jsonBody), nil
+	}
+
+	headers := map[string]string{}
+	if body != nil {
+		headers["Content-Type"] = "application/json"
+	}
+	for k, v := range extraHeaders {
+		headers[k] = v
+	}
+
+	return c.do(ctx, method, path, bodyFactory, headers, true)
 }
 
-func (c *Client) doRequest(ctx context.Context, method, path string, body any, extraHeaders map[string]string, retry bool) (*Response, error) {
+// RequestRaw makes an authenticated request to /api+path sending the body
+// produced by bodyFactory verbatim, without JSON marshaling. The caller sets
+// the Content-Type (and any other headers) via extraHeaders. Use it for file
+// uploads (multipart/form-data) or other non-JSON payloads.
+//
+// bodyFactory is a factory, not a reader, because the request may be retried
+// once after a 401 — the body must be reproducible. Return (nil, nil) for an
+// empty body.
+func (c *Client) RequestRaw(ctx context.Context, method, path string, bodyFactory func() (io.Reader, error), extraHeaders map[string]string) (*Response, error) {
+	return c.do(ctx, method, path, bodyFactory, extraHeaders, true)
+}
+
+func (c *Client) do(ctx context.Context, method, path string, bodyFactory func() (io.Reader, error), extraHeaders map[string]string, retry bool) (*Response, error) {
 	token, err := c.getToken(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var reqBody io.Reader
-	if body != nil {
-		jsonBody, err := json.Marshal(body)
+	if bodyFactory != nil {
+		reqBody, err = bodyFactory()
 		if err != nil {
-			return nil, fmt.Errorf("marshal body: %w", err)
+			return nil, err
 		}
-		reqBody = bytes.NewReader(jsonBody)
 	}
 
 	if path != "" && !strings.HasPrefix(path, "/") {
@@ -328,9 +399,6 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body any, e
 	c.applyHeaders(req)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
 	for k, v := range extraHeaders {
 		req.Header.Set(k, v)
 	}
@@ -347,7 +415,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body any, e
 
 	if resp.StatusCode == http.StatusUnauthorized && retry {
 		c.invalidateToken(ctx)
-		return c.doRequest(ctx, method, path, body, extraHeaders, false)
+		return c.do(ctx, method, path, bodyFactory, extraHeaders, false)
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
